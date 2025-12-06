@@ -26,6 +26,8 @@
     color:#198754;
     font-size:26px;
   }
+
+  /* REVIEW BOX */
   .review-box{
     background:#ffffff;
     border-radius:12px;
@@ -35,9 +37,27 @@
     font-size:15px;
     line-height:1.5;
     text-align:left;
-    color:#9aa0a6;  /* light gray text */
+    color:#9aa0a6;
     margin-bottom:18px;
+    position:relative;
   }
+
+  /* LOADING SPINNER */
+  .spinner {
+    width:26px;
+    height:26px;
+    border:3px solid #ddd;
+    border-top-color:#198754;
+    border-radius:50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto;
+    margin-top:4px;
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* BUTTON (hidden initially) */
   button{
     width:100%;
     border:none;
@@ -49,8 +69,13 @@
     background:#198754;
     color:#fff;
     box-shadow:0 6px 18px rgba(0,0,0,0.18);
-    transition:transform .12s ease, box-shadow .12s ease, opacity .12s ease;
-    display:none; /* 📌 Hidden by default */
+    opacity:0;           /* hidden */
+    pointer-events:none; /* disabled until fade-in */
+    transition:opacity .6s ease;
+  }
+  button.show {
+    opacity:1;
+    pointer-events:auto;
   }
   button:hover{
     transform:translateY(-1px);
@@ -64,7 +89,7 @@
   <h1>Suggested Review</h1>
 
   <div id="reviewBox" class="review-box">
-    Loading review...
+    <div class="spinner"></div>
   </div>
 
   <button id="copyBtn">Copy &amp; Open Google</button>
@@ -87,10 +112,10 @@
       currentReviewText = data.text || "";
       reviewBox.textContent = currentReviewText;
 
-      console.log("Global review no:", data.index, "fallback:", !!data.fallback);
+      // Fade-in button
+      copyBtn.classList.add("show");
 
-      // 📌 Review load hua → button show karo
-      copyBtn.style.display = "block";
+      console.log("Review:", data.index);
 
     } catch (err) {
       console.error("Error loading review:", err);
@@ -100,7 +125,6 @@
 
   copyBtn.addEventListener("click", async () => {
     if (!currentReviewText) return;
-
     try {
       await navigator.clipboard.writeText(currentReviewText);
     } catch (err) {
