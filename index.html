@@ -50,6 +50,7 @@
     color:#fff;
     box-shadow:0 6px 18px rgba(0,0,0,0.18);
     transition:transform .12s ease, box-shadow .12s ease, opacity .12s ease;
+    display:none; /* 📌 Hidden by default */
   }
   button:hover{
     transform:translateY(-1px);
@@ -70,12 +71,8 @@
 </div>
 
 <script>
-  // ⬇️ Yaha apne Apps Script Web App ka URL daalo (exec se end hota hai) ⬇️
   const API_URL = "https://script.google.com/macros/s/AKfycbx579TE5jN8VcMWzrAjzLlaieDpk02zglUH0mmQsEb9NKnQnCz6f33iYRGxcEqnwp-pGw/exec";
-
-  // ⬇️ Yaha apna Google Business 'Write a Review' link daalo ⬇️
-  const GOOGLE_REVIEW_URL =
-    "https://g.page/r/CVkZtJEDPD28EBM/review";
+  const GOOGLE_REVIEW_URL = "https://g.page/r/CVkZtJEDPD28EBM/review";
 
   const reviewBox = document.getElementById("reviewBox");
   const copyBtn = document.getElementById("copyBtn");
@@ -90,8 +87,10 @@
       currentReviewText = data.text || "";
       reviewBox.textContent = currentReviewText;
 
-      // Admin ke liye: console me dekh sakte ho kaunsa global review number gaya
       console.log("Global review no:", data.index, "fallback:", !!data.fallback);
+
+      // 📌 Review load hua → button show karo
+      copyBtn.style.display = "block";
 
     } catch (err) {
       console.error("Error loading review:", err);
@@ -102,11 +101,9 @@
   copyBtn.addEventListener("click", async () => {
     if (!currentReviewText) return;
 
-    // ✅ Copy to clipboard
     try {
       await navigator.clipboard.writeText(currentReviewText);
     } catch (err) {
-      // Fallback old method
       const ta = document.createElement("textarea");
       ta.value = currentReviewText;
       document.body.appendChild(ta);
@@ -115,13 +112,10 @@
       document.body.removeChild(ta);
     }
 
-    // ✅ Google review page open karo (naya tab)
     window.open(GOOGLE_REVIEW_URL, "_blank");
   });
 
-  // Page load hote hi global NEXT review API se text lo
   loadReview();
 </script>
 </body>
 </html>
-
