@@ -20,6 +20,7 @@
     max-width:420px;
     text-align:center;
     padding:24px;
+    position:relative;
   }
   h1{
     margin:0 0 16px;
@@ -42,7 +43,7 @@
     position:relative;
   }
 
-  /* LOADING SPINNER */
+  /* LOADING SPINNER (inside review box) */
   .spinner {
     width:26px;
     height:26px;
@@ -71,7 +72,7 @@
     box-shadow:0 6px 18px rgba(0,0,0,0.18);
     opacity:0;           /* hidden */
     pointer-events:none; /* disabled until fade-in */
-    transition:opacity .6s ease;
+    transition:opacity .6s ease, transform .15s ease, box-shadow .15s ease;
   }
   button.show {
     opacity:1;
@@ -81,6 +82,40 @@
     transform:translateY(-1px);
     box-shadow:0 10px 24px rgba(0,0,0,0.22);
     opacity:.96;
+  }
+
+  /* FULLSCREEN COUNTDOWN OVERLAY */
+  .count-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(245,247,248,0.95);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-direction:column;
+    z-index:999;
+  }
+  .count-circle{
+    width:110px;
+    height:110px;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border:8px solid #d4d4d4; /* outer grey ring */
+    background:conic-gradient(#198754 0deg, #e0e0e0 0deg);
+    box-shadow:0 8px 24px rgba(0,0,0,0.12);
+  }
+  .count-num{
+    font-size:52px;
+    font-weight:700;
+    color:#b31212; /* red number like screenshot */
+  }
+  .count-text{
+    margin-top:14px;
+    font-size:15px;
+    font-weight:500;
+    color:#444;
   }
 </style>
 </head>
@@ -93,16 +128,80 @@
   </div>
 
   <button id="copyBtn">Copy &amp; Open Google</button>
+
+  <!-- COUNTDOWN OVERLAY -->
+  <div id="countOverlay" class="count-overlay">
+    <div class="count-circle" id="countCircle">
+      <span id="countNum" class="count-num">5</span>
+    </div>
+    <div class="count-text" id="countText">Waiting... 5 Sec</div>
+  </div>
 </div>
 
 <script>
   const API_URL = "https://script.google.com/macros/s/AKfycbx579TE5jN8VcMWzrAjzLlaieDpk02zglUH0mmQsEb9NKnQnCz6f33iYRGxcEqnwp-pGw/exec";
   const GOOGLE_REVIEW_URL = "https://g.page/r/CVkZtJEDPD28EBM/review";
 
-  const reviewBox = document.getElementById("reviewBox");
-  const copyBtn = document.getElementById("copyBtn");
+  const reviewBox   = document.getElementById("reviewBox");
+  const copyBtn     = document.getElementById("copyBtn");
+
+  const countOverlay = document.getElementById("countOverlay");
+  const countNum     = document.getElementById("countNum");
+  const countText    = document.getElementById("countText");
+  const countCircle  = document.getElementById("countCircle");
 
   let currentReviewText = "";
+  let reviewLoaded = false;
+
+  const COUNT_START = 5;
+  let currentCount = COUNT_START;
+  let countdownTimer = null;
+
+  function updateCountdownUI() {
+    countNum.textContent = currentCount;
+    countText.textContent = "Waiting... " + currentCount + " Sec";
+
+    // progress arc (0 se 360 degree tak)
+    const progress = (COUNT_START - currentCount) / COUNT_START; // 0 → <1
+    const deg = Math.max(1, progress * 360); // thoda sa green hamesha dikhe
+    countCircle.style.background =
+      "conic-gradient(#198754 " + deg + "deg, #e0e0e0 0deg)";
+  }
+
+  function startCountdown() {
+    currentCount = COUNT_START;
+    updateCountdownUI();
+    countOverlay.style.display = "flex";
+
+    // agar pehle se koi timer hai toh clear
+    if (countdownTimer) clearInterval(countdownTimer);
+
+    countdownTimer = setInterval(() => {
+      // agar review load ho gaya toh turant band
+      if (reviewLoaded) {
+        stopCountdown();
+        return;
+      }
+
+      currentCount--;
+
+      if (currentCount <= 0) {
+        // agar abhi tak data nahi aaya toh countdown dobara se start
+        currentCount = COUNT_START;
+      }
+
+      updateCountdownUI();
+    }, 1000);
+  }
+
+  function stopCountdown() {
+    if (countdownTimer) {
+      clearInterval(countdownTimer);
+      countdownTimer = null;
+    }
+    countOverlay.style.display = "none";
+    copyBtn.classList.add("show"); // ab button visible + clickable
+  }
 
   async function loadReview() {
     try {
@@ -110,21 +209,30 @@
       const data = await res.json();
 
       currentReviewText = data.text || "";
-      reviewBox.textContent = currentReviewText;
+      reviewBox.textContent = currentReviewText || "Review text blank aaya hai.";
 
-      // Fade-in button
-      copyBtn.classList.add("show");
+      reviewLoaded = true;   // flag set
+      stopCountdown();       // overlay turant hatao
 
-      console.log("Review:", data.index);
-
+      console.log("Review index:", data.index);
     } catch (err) {
       console.error("Error loading review:", err);
-      reviewBox.textContent = "Review text load nahi ho paaya. Thodi der baad phir try karein.";
+      reviewBox.textContent =
+        "Review text load nahi ho paaya. Thodi der baad phir try karein.";
+
+      // Error case me bhi wait karwana bekaar hai → countdown hatao, button dikhao
+      reviewLoaded = true;
+      stopCountdown();
     }
   }
 
   copyBtn.addEventListener("click", async () => {
-    if (!currentReviewText) return;
+    if (!currentReviewText) {
+      // phir bhi agar user click kare toh sirf google open kara do
+      window.open(GOOGLE_REVIEW_URL, "_blank");
+      return;
+    }
+
     try {
       await navigator.clipboard.writeText(currentReviewText);
     } catch (err) {
@@ -139,6 +247,8 @@
     window.open(GOOGLE_REVIEW_URL, "_blank");
   });
 
+  // Page load hote hi: pehle countdown start, fir API call
+  startCountdown();
   loadReview();
 </script>
 </body>
